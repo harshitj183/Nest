@@ -12,7 +12,7 @@ from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponseNotAllowed, JsonResponse
 
-from apps.common.index import IndexBase
+from apps.common.index import AlgoliaConfigurationError, IndexBase
 from apps.common.utils import get_user_ip_address
 from apps.core.constants import CACHE_PREFIX
 from apps.core.utils.index import deep_camelize, get_params_for_index
@@ -35,6 +35,12 @@ def algolia_search(request: HttpRequest) -> JsonResponse | HttpResponseNotAllowe
         return JsonResponse(
             {"error": f"Method {request.method} is not allowed"},
             status=HTTPStatus.METHOD_NOT_ALLOWED,
+        )
+
+    if not IndexBase.is_configured():
+        return JsonResponse(
+            {"error": "Algolia is not configured. Please check your environment variables."},
+            status=HTTPStatus.INTERNAL_SERVER_ERROR,
         )
 
     try:
@@ -74,10 +80,12 @@ def algolia_search(request: HttpRequest) -> JsonResponse | HttpResponseNotAllowe
         cache.set(cache_key, result, CACHE_TTL_IN_SECONDS)
 
         return JsonResponse(result)
+    except AlgoliaConfigurationError as error:
+        return JsonResponse({"error": str(error)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
     except (AlgoliaException, json.JSONDecodeError):
         return JsonResponse(
             {"error": "An internal error occurred. Please try again later."},
-            status=500,
+            status=HTTPStatus.INTERNAL_SERVER_ERROR,
         )
 
 

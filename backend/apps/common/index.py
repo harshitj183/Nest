@@ -9,6 +9,8 @@ from pathlib import Path
 from algoliasearch.http.exceptions import AlgoliaException
 from algoliasearch.search.client import SearchClientSync
 from algoliasearch.search.config import SearchConfig
+class AlgoliaConfigurationError(AlgoliaException):
+    """Exception raised when Algolia is not configured."""
 from algoliasearch_django import AlgoliaIndex
 from algoliasearch_django.decorators import register as algolia_register
 from django.conf import settings
@@ -127,6 +129,16 @@ class IndexBase(AlgoliaIndex):
     """Base index class."""
 
     @staticmethod
+    def is_configured() -> bool:
+        """Check if Algolia is configured.
+
+        Returns:
+            bool: True if Algolia is configured, False otherwise.
+
+        """
+        return bool(settings.ALGOLIA_APPLICATION_ID) and bool(settings.ALGOLIA_WRITE_API_KEY)
+
+    @staticmethod
     def get_client(ip_address=None) -> SearchClientSync:
         """Return an instance of the search client.
 
@@ -137,6 +149,9 @@ class IndexBase(AlgoliaIndex):
             SearchClientSync: The search client instance.
 
         """
+        if not IndexBase.is_configured():
+            raise AlgoliaConfigurationError("Algolia is not configured.")
+
         config = SearchConfig(
             settings.ALGOLIA_APPLICATION_ID,
             settings.ALGOLIA_WRITE_API_KEY,
